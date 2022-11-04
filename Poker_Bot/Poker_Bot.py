@@ -36,7 +36,24 @@ class game_node:
         if total > 0:
             strategy = strategy / total
         else:
-            n = _N_ACTIONS
+            n = NUM_ACTIONS # change out later for paramter from unity 
+            strategy = np.repeat(1/n, n)
+        return strategy
+
+    def get_average_strategy(self):
+        strategy = self.strategy_sum / self.reach_pr_sum
+        strategy = np.where(strategy < 0.001, 0, strategy)
+        total = sum(strategy)
+        strategy /= total
+        return strategy
+    def make_positive(self, x):
+        return np.where(x > 0, x, 0)
+    def __str__(self):
+        strategies = ['{:03.2f}'.format(x) for x in self.get_average_strategy()]
+        return '{} {}'.format(self.key.ljust(6), strategies)
+
+        
+
 def __main__():
     # most of this will replaced with a call to unity 
     # to get what cards we have and other player
