@@ -12,7 +12,29 @@ class Player(object):
         self.roles_list = []
         self.win = False
 
-
 player1 = Player('Logan')
 player2 = Player('Natalie')
-player3 = Player('Killer AI')
+player3 = Player('Kioni')
+players = [player1, player2, player3]
+
+
+def assign_player_roles(players_not_out):
+    index = 0
+    dealer = players_not_out[index]
+    dealer.roles_list.append('dealer')
+    index += 1
+    index %= len(players_not_out)
+    small_blind = players_not_out[index]
+    small_blind.roles_list.append('small blind')
+    index += 1
+    index %= len(players_not_out)
+    big_blind = players_not_out[index]
+    big_blind.roles_list.append('big blind')
+    index += 1
+    index %= len(players_not_out)
+    first_to_act = players_not_out[index]
+    first_to_act.roles_list.append('first to act')
+    players_not_out.append(players_not_out.pop(0))
+
+
+assign_player_roles(players)
