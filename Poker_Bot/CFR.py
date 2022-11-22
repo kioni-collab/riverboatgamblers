@@ -24,5 +24,5 @@ class CFR():
         
         pass            
 
-    def traversal(self,h,p cards,m_v,m_p,t):
+    def traversal(self,h,p ,cards,m_v,m_p,t):
         pass
