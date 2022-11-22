@@ -51,9 +51,30 @@ class game_node:
     def __str__(self):
         strategies = ['{:03.2f}'.format(x) for x in self.get_average_strategy()]
         return '{} {}'.format(self.key.ljust(6), strategies)
+def is_draw(histroy):
+    pass
+def is_terminal(history):
+    pass
+def terminal_utility(history):
+    pass
+def is_chance(history):
+    pass
+
 
 def cfr(history=[], cards = [[-1],[-1],[-1]], pr=[[1],[1],[1]] ,pr_c=1):
     # investigate pr_c more to see if it changes
+    if is_draw(history):
+        expected_Val = 0
+        for i in DECK:
+            for j in DECK:
+                for k in DECK:
+                    if i != j :
+                        expected_Val += cfr(history,cards[[i],[j],[k]], pr = [[1],[1],[1]], pr_c=1 )
+        return expected_Val/ (3**(len(DECK))) # all the possible combinations of 3 cards
+    
+    if is_terminal(history):
+        return terminal_utility(history)
+
     player_num = 1 # call to unity for which player
     info_set = get_info_set(cards[player_num], history)
     strategy = info_set.strategy
