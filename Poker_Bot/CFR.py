@@ -55,16 +55,6 @@ class CFR():
             loss = self.strat_model.loss(pred,target_strategy,t_val)
             loss.backwards()
             optimizer.step()
-
-
-
-
-
-                
-                 
-
-        # train model b 
-        
         pass            
 
     def traversal(self,h,p ,cards,board,t):
@@ -88,15 +78,12 @@ class CFR():
             for a in self.get_actions(h):
                 h_new = list(h)
                 h_new.append(a)
-                v[a] = self.traversal(h_new,p,cards,board,m_v,m_p,t)
+                v[a] = self.traversal(h_new,p,cards,board,t)
                 v_o += o[a] * v[a]
             for a in self.get_actions(h):
                 #work out what data type r(I,a) should be
                 r[a] = v[a] - v_o
                 pass
-            I = list(h)
-            I.extend(cards)
-            I.extend(board)
             self.m_v.append(([cards[p],h,board],t,r))
             return v_o 
             #insert into m_V
