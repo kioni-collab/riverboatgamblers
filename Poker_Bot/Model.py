@@ -1,6 +1,7 @@
 import torch 
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.functional import normalize
 
 class CardEmbedding(nn.Module):
     def __init__(self,dim):
@@ -61,6 +62,9 @@ class DeepCFRModel(nn.Module):
 
         z = normalize(z)
         return self.action_head(z)
+    def loss(output, target,t):
+        loss = torch.mean(t*((output - target)**2))
+        return loss
 
         
 
