@@ -25,23 +25,33 @@ class CFR():
                 # train model 
                 self.value_model = DeepCFRModel()
                 optimizer = optim.Adam(self.value_model.parameters())
-                target_regret = [r[2] for r in self.m_p]
+                target_regret = np.asarray([r[2] for r in self.m_p])
                 info_set = [r[0] for r in self.m_p] # split up between card,board and bet
-                t_val = [r[1] for r in self.m_p]
+                player_cards = [i[0] for i in info_set]
+                board_cards = [i[1] for i in info_set]
+                cards = np.array([np.array(xi) for xi in [player_cards,board_cards]])# hopfully this is good
+                histories = [i[2] for i in info_set]
+                bets = np.array([True if i == "b" else False for i in histories ]) # this may not be the right format
+                t_val = np.asarray([r[1] for r in self.m_p])
                 for e in range(100):
                     optimizer.zero_grad()
-                    pred = self.value_model(info_set) # switch out when not exhuasted
+                    pred = self.value_model(cards,bets) # switch out when not exhuasted
                     loss = self.value_model.loss(pred,target_regret,t_val)
                     loss.backwards()
                     optimizer.step()
         self.strat_model = DeepCFRModel()
         optimizer = optim.Adam(self.strat_model.parameters())
-        target_strategy = [r[2] for r in self.m_v]
+        target_strategy = np.asarray([r[2] for r in self.m_v])
         info_set = [r[0] for r in self.m_v] # split up between card,board and bet
-        t_val = [r[1] for r in self.m_v]
+        player_cards = [i[0] for i in info_set]
+        board_cards = [i[1] for i in info_set]
+        cards = np.array([np.array(xi) for xi in [player_cards,board_cards]]) # hopfully this is good
+        histories = [i[2] for i in info_set]
+        bets = np.array([True if i == "b" else False for i in histories ]) # this may not be the right format
+        t_val = np.asarray([r[1] for r in self.m_v])
         for e in range(100):
             optimizer.zero_grad()
-            pred = self.strat_model(info_set) # switch out when not exhuasted
+            pred = self.strat_model(cards,bets) # switch out when not exhuasted
             loss = self.strat_model.loss(pred,target_strategy,t_val)
             loss.backwards()
             optimizer.step()
@@ -87,7 +97,7 @@ class CFR():
             I = list(h)
             I.extend(cards)
             I.extend(board)
-            self.m_v.append((I,t,r))
+            self.m_v.append(([cards[p],h,board],t,r))
             return v_o 
             #insert into m_V
         else:
@@ -95,10 +105,7 @@ class CFR():
             # edit the regret_matching stuff so it uses the right cards
             cards_not_p = list(cards).pop(p)
             o = self.regret_matching(h,p,cards_not_p,board)
-            I = list(h)
-            I.extend(cards)
-            I.extend(board)
-            self.m_p.append((I,t,o))
+            self.m_p.append(([cards[p],h,board],t,o))
             A = self.get_actions(h)
             a = choices(A,o)
             return self.traversal(h.append(a),p,cards,board,t)

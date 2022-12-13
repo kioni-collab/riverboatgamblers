@@ -62,7 +62,7 @@ class DeepCFRModel(nn.Module):
 
         z = normalize(z)
         return self.action_head(z)
-    def loss(output, target,t):
+    def loss(self, output, target,t):
         loss = torch.mean(t*((output - target)**2))
         return loss
 
