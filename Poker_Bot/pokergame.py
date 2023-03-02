@@ -25,7 +25,11 @@ class poker_game:
     
     # resolves winner and disgrubtes pot, we want to see that was the winnings/losings for our player
     def winner(self, player):
-        prev_amount  = self.game.players[player].
+        prev_amount  = self.game.players[player].stack
         for p in self.game.players:
             p.showdown()
-        return 
+        return self.game.players[player].stack - prev_amount
+    
+    # to see if we are at a chance node then all players must not be able do do any moves
+    # so make a functi
+    #
