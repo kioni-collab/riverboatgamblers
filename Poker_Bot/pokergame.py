@@ -33,3 +33,20 @@ class poker_game:
     # to see if we are at a chance node then all players must not be able do do any moves
     # so make a functi
     #
+
+#assume that elemts in h are like {"player_num": p3, action:"checl"}
+def is_chance(g,player_num):
+    checked = []
+    non_check_actions = 0
+    for l in g:
+        if l["action"] == "Check":
+            if l not in checked:
+                checked.append(l)
+            else:
+                checked.remove(l)
+        else:
+            non_check_actions += 1
+    
+    if non_check_actions % player_num == 0 and (len(checked) == 0 or len(checked)==player_num):
+        return True
+    return False

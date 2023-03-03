@@ -57,28 +57,33 @@ class CFR():
             optimizer.step()
         pass            
 
-    def traversal(self,h,p ,cards,board,t):
-        if self.is_terminal(h):
+# g is actions i that round
+    def traversal(self,h,p ,cards,board,t,g, round):
+        if self.is_terminal(h,round):
             return self.util(h,p,cards,board)
         # what does a chance node do in poker, it is adding a new card to the board
         # so we have to simulate that, its actions are not fold check raise
-        elif self.is_chance(h):
+        elif self.is_chance(g, len(cards)):
             # get number of cards left in deck
             # pick one randomly
             # add to board and history
             # done 
+            g_new = []
+            round += 1
             return 
-        elif self.current_player(h) == p:
+        elif self.current_player(g) == p:
             # make a regret matching function
             #
-            o = self.regret_matching(h,p,cards[p],board)
+            o = 0 # this will be generated from neural network
             v = {}
             v_o = 0
             r = {}
-            for a in self.get_actions(h):
+            for a in self.get_actions(g,p):
                 h_new = list(h)
                 h_new.append(a)
-                v[a] = self.traversal(h_new,p,cards,board,t)
+                g_new = list(g)
+                g_new.append(a)
+                v[a] = self.traversal(h_new,p,cards,board,t, g_new)
                 v_o += o[a] * v[a]
             for a in self.get_actions(h):
                 #work out what data type r(I,a) should be
@@ -95,27 +100,58 @@ class CFR():
             self.m_p.append(([cards[p],h,board],t,o))
             A = self.get_actions(h)
             a = choices(A,o)
-            return self.traversal(h.append(a),p,cards,board,t)
+            h_new = list(h)
+            h_new.append(a)
+            g_new = list(g)
+            g_new.append(a)
+            return self.traversal(h_new,p,cards,board,t, g_new)
 
             pass
 
 
         
         pass
-    def is_terminal(self,h):
-        #some unity call or game logic call
-        pass
+    
+    def is_terminal(self,h, round):
+        return round == 4
+    
     def util(self,h,p,cards,board):
         # call to unity for money won
         pass
-    def is_chance(self,h):
-        # some kind of unit
-        pass
-    def current_player(h):
-        #make a unity call or some other math for later
-        pass
-    def get_actions(h):
-        pass
-    def regret_matching():
-        # firgure out what paramters to use 
-        pass 
+    #assume that elemts in g are like {"player_num": 3, action:"check"}
+    def is_chance(self,g,player_num):
+        checked = []
+        non_check_actions = 0
+        for l in g:
+            if l["action"] == "Check":
+                if l not in checked:
+                    checked.append(l)
+                else:
+                    checked.remove(l)
+            else:
+                non_check_actions += 1
+        
+        if non_check_actions % player_num == 0 and (len(checked) == 0 or len(checked)==player_num):
+            return True
+        return False
+
+# we have a queue of player from 1 to n, we want tp get rid of players who already used up their turn this round
+# for players we check we put them at the back of the list so the players who havent had a turn yet are at the front
+#we return the first player in the queue 
+    def current_player(g,player_num):
+        player_q = [i for i in range(player_num)]
+        for l in g:
+            if l["action"] != "Check":
+                player_q.remove[l["player"]]
+            else:
+                player_q.remove[l["player"]]
+                player_q.append[l["player"]]
+
+        return player_q[0]
+    
+    def get_actions(g,p):
+        if any([l["action"] == "check " for l in g]):
+            return [ "bet", "fold", "call"]
+        else:
+            return ["check", "bet", "fold", "call"]
+        
