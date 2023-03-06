@@ -59,7 +59,7 @@ class CFR():
 
 # g is actions i that round
     def traversal(self,h,p ,cards,board,t,g, round):
-        if self.is_terminal(h,round):
+        if self.is_terminal(h,round, len(cards) ):
             return self.util(h,p,cards,board)
         # what does a chance node do in poker, it is adding a new card to the board
         # so we have to simulate that, its actions are not fold check raise
@@ -112,32 +112,33 @@ class CFR():
         
         pass
     
-    def is_terminal(self,h, round):
-        return round == 4
+    def is_terminal(self,h, round, player_num):
+        return (round == 4) or player_num == 1
     
     def util(self,h,p,cards,board):
         # call to unity for money won
         pass
     #assume that elemts in g are like {"player_num": 3, action:"check"}
     def is_chance(self,g,player_num):
-        checked = []
-        non_check_actions = 0
-        for l in g:
-            if l["action"] == "Check":
-                if l not in checked:
-                    checked.append(l)
-                else:
-                    checked.remove(l)
-            else:
-                non_check_actions += 1
-        
-        if non_check_actions % player_num == 0 and (len(checked) == 0 or len(checked)==player_num):
-            return True
-        return False
+        equal_bet_list = []
+        check_list = []
+        for a in g:
+            if a["action"] == "bet":
+                check_list.clear()
+                equal_bet_list.clear()
+                equal_bet_list.append(a)
+            if a["action"] == "call":
+                equal_bet_list.append(a)
+            if a["action"] == "check":
+                check_list.append(a)
+        return (len(equal_bet_list) == player_num) or (len(check_list) == player_num)
+
+
 
 # we have a queue of player from 1 to n, we want tp get rid of players who already used up their turn this round
 # for players we check we put them at the back of the list so the players who havent had a turn yet are at the front
 #we return the first player in the queue 
+#review to see if makes sense 
     def current_player(g,player_num):
         player_q = [i for i in range(player_num)]
         for l in g:
@@ -150,8 +151,9 @@ class CFR():
         return player_q[0]
     
     def get_actions(g,p):
-        if any([l["action"] == "check " for l in g]):
-            return [ "bet", "fold", "call"]
+        if any([l["action"] == "bet " for l in g]):
+            return ["bet","call", "fold"]
         else:
-            return ["check", "bet", "fold", "call"]
+            return ["bet","check", "fold"]
+        
         
