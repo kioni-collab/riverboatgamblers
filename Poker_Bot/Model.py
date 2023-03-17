@@ -9,7 +9,8 @@ class CardEmbedding(nn.Module):
         self.rank = nn.Embedding(13,dim)
         self.suit = nn.Embedding(4,dim)
         self.card = nn.Embedding(52,dim)
-    def foward(self, input):
+    def forward(self, input):
+        print(input.shape)
         B, num_cards = input.shape
         x = input.view(-1)
         valid  = x.ge(0).float()
@@ -39,7 +40,7 @@ class DeepCFRModel(nn.Module):
 
         self.action_head  = nn.Linear(dim,nactions)
     
-    def fowards(self,cards,bets):
+    def forward(self,cards,bets):
         card_embs = []
         for embedding, card_group in zip(self.card_embeddings, cards):
             card_embs.append(embedding(card_group))
@@ -52,7 +53,7 @@ class DeepCFRModel(nn.Module):
         bet_size = bets.clamp(0,1e6)
         bet_occurred = bets.ge(0)
         bet_feats = torch.cat([bet_size,bet_occurred.float()], dim=1)
-        y = F.relu(self.bt1(bet_feats))
+        y = F.relu(self.bet1(bet_feats))
         y = F.relu(self.bet2(y) + y)
 
         z = torch.cat([x,y], dim=1)

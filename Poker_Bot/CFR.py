@@ -4,12 +4,13 @@ from random import choices
 import random
 from torch import optim
 from player import Player
+import torch
 class CFR():
     def __init__(self,players):
         self.m_v = [[] for p in range(len(players))]
         self.m_p = []
-        self.value_model = DeepCFRModel()
-        self.strat_model = DeepCFRModel()
+        #self.value_model = DeepCFRModel()
+        #self.strat_model = DeepCFRModel()
         self.info_sets = {}
 
 
@@ -19,6 +20,7 @@ class CFR():
     # may need infoset map as well
     # find out if models are already initialized to return 0 
     def deepcfr(self,T,players,K,board:list):
+
         for t in range(1000):
             for p in range(len(players)):
                 for k in range(K):
@@ -64,7 +66,7 @@ class CFR():
         if self.is_terminal(round, len(players) ):
             return self.util(h,p,players,board)
         # what does a chance node do in poker, it is adding a new card to the board
-        elif self.is_chance(players):
+        elif self.is_chance(players,round):
             # get number of cards left in deck
             # pick one randomly
             # add to board and history
@@ -155,9 +157,8 @@ class CFR():
         pass
     #assume that elemts in g are like {"player_num": 3, action:"check"}
 
-    def is_chance(self,players):
-        return  all([(p.get_bet_amt() == players[0].get_bet_amt() and players[0].get_bet_amt() != 0 and p.get_last_action() is not None) for p in players]) or all([p.last_action() == "check" for p in players])
-
+    def is_chance(self,players,round):
+        return  all([(p.get_bet_amt() == players[0].get_bet_amt() and players[0].get_bet_amt() != 0 and p.get_last_action() is not None) for p in players]) or all([p.get_last_action() is not None and p.last_action() == "check" for p in players]) or round==0
 
 
 # we have a queue of player from 1 to n, we want tp get rid of players who already used up their turn this round
@@ -174,3 +175,17 @@ class CFR():
             return ["bet","call", "fold"]
         else:
             return ["bet", "check", "fold"]
+
+players = [Player(1, []),Player(2,[]), Player(3,[])]
+
+print(CFR(players).is_chance(players,0))
+hole = [[1,2]]
+print(torch.tensor(hole).shape)
+board = [[3, 4,5,6]]
+turn = [[7]]
+cards = ( torch.tensor(hole),torch.tensor(board), [torch.tensor(turn)])
+#mase sure there is enough buffering/padding for bets 
+bets = [[0,-1,0,-1,-1, 0, 0,0,0,0]]
+print(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ))
+bets = [[0,-1,0,-1,-1]]
+print(DeepCFRModel(2,5,4).forward(cards,torch.tensor(bets) ))
