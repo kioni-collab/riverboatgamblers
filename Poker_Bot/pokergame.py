@@ -7,10 +7,22 @@ class poker_game:
     def is_terminal(self,round, player_num):
         return (round == 4) or player_num == 1
     
-    def util(self,h,p,cards,board):
+    def util(self,h,p,players,board):
         # call to unity for money won
-        pass
-    #assume that elemts in g are like {"player_num": 3, action:"check"}
+        evaluator = StandardEvaluator()
+        curr_player = evaluator.evaluate_hand(
+        parse_cards(players[p].get_cards()), parse_cards(board),
+        )
+        other_players = [ evaluator.evaluate_hand(
+        parse_cards(players[i].get_cards()), parse_cards(board),
+        ) for i in players ]
+        top_score = True if all([curr_player >= j for j in other_players]) else False
+
+        if top_score:
+             
+            return sum([pl.get_bet_amt() for pl in players]) - players[p].get_bet_amt()
+        else:
+            return  -players[p].get_bet_amt()
 
     def is_chance(self,players,round):
         return  all([(p.get_bet_amt() == players[0].get_bet_amt() and players[0].get_bet_amt() != 0 and p.get_last_action() is not None) for p in players]) or all([p.get_last_action() is not None and p.last_action() == "check" for p in players]) or round==0

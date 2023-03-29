@@ -14,7 +14,7 @@ NACTIONS = 3
 class CFR():
     def __init__(self,players):
         self.m_v = [[] for p in range(len(players))]
-        self.m_p = []
+        self.m_pi = []
         self.value_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
         self.strat_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
         self.card_to_label = self.card_to_label(StandardDeck())
@@ -25,24 +25,25 @@ class CFR():
     # may need to change how we pass network parametrs through traversal
     # may need infoset map as well
     # find out if models are already initialized to return 0 
-    def deepcfr(self,T,players,K,board:list,deck):
+    def deepcfr(self,T,player_num,K):
  
         for t in range(T):
+            deck = StandardDeck()
+            players = [Player(i,[deck.draw(),deck.draw()]) for i in range(player_num)]
+            board = []
+
             for p in range(len(players)):
                 for k in range(K):
-                    self.traversal([],p,players,board,t,10, 4,8,0,deck )
+                    self.traversal([],p,players,board,t,10, 4,8,1,deck )
                 # train model 
                 self.value_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
                 optimizer = optim.Adam(self.value_model.parameters())
-                target_regret = np.asarray([r[2] for r in self.m_p])
-                info_set = [r[0] for r in self.m_p] # split up between card,board and bet
-                player_cards = [i[0] for i in info_set]
-                board_cards = [i[1] for i in info_set]
-                cards = np.array([np.array(xi) for xi in [player_cards,board_cards]])# hopfully this is good
-                histories = [i[2] for i in info_set]
-                bets = np.array([True if i == "b" else False for i in histories ]) # this may not be the right format
-                t_val = np.asarray([r[1] for r in self.m_p])
-                for e in range(100):
+                cards = [i[0][0] for i in self.m_v[p]]
+                bets = [i[0][1] for i in self.m_v[p]]
+                target_regret = [i[2] for i in self.m_v[p]]
+                t_val = [i[1] for i in self.m_v[p]]
+                
+                for _ in range(100):
                     optimizer.zero_grad()
                     pred = self.value_model(cards,bets) # switch out when not exhuasted
                     loss = self.value_model.loss(pred,target_regret,t_val)
@@ -50,14 +51,10 @@ class CFR():
                     optimizer.step()
         self.strat_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
         optimizer = optim.Adam(self.strat_model.parameters())
-        target_strategy = np.asarray([r[2] for r in self.m_v])
-        info_set = [r[0] for r in self.m_v] # split up between card,board and bet
-        player_cards = [i[0] for i in info_set]
-        board_cards = [i[1] for i in info_set]
-        cards = np.array([np.array(xi) for xi in [player_cards,board_cards]]) # hopfully this is good
-        histories = [i[2] for i in info_set]
-        bets = np.array([True if i == "b" else False for i in histories ]) # this may not be the right format
-        t_val = np.asarray([r[1] for r in self.m_v])
+        cards = [i[0][0] for i in self.m_pi]
+        bets = [i[0][1] for i in self.m_pi]
+        target_regret = [i[2] for i in self.m_pi]
+        t_val = [i[1] for i in self.m_pi]
         for e in range(100):
             optimizer.zero_grad()
             pred = self.strat_model.forward(cards,bets) # switch out when not exhuasted
@@ -76,7 +73,10 @@ class CFR():
             # pick one randomly
             # add to board and history
             # done 
-            board.append(deck.pop(random.randrange(len(deck))))
+            if round == 1:
+                board.append(deck.draw(3))
+            else:
+                board.append(deck.draw(1))
             h.append("board_card")
             #reset all player actions to none
             new_players = list(players)
@@ -129,14 +129,14 @@ class CFR():
                 flop_cards = labled_board
                 tensor_flop = torch.tensor([flop_cards])
                 cards_formatted = (tensor_hole,tensor_flop,[])
-                self.m_v.append([cards_formatted,tensor_bets],t,torch.tensor([r]))
+                self.m_v[p].append([cards_formatted,tensor_bets],t,torch.tensor([r]))
             elif len(labled_board) == 4:
                 flop_cards = labled_board[:3]
                 turn_card = labled_board[3]
                 tensor_flop = torch.tensor([flop_cards])
                 tensor_turn = torch.tensor([turn_card])
                 cards_formatted = (tensor_hole,tensor_flop,[tensor_turn])
-                self.m_v.append([cards_formatted,tensor_bets],t,torch.tensor([r]))
+                self.m_v[p].append([cards_formatted,tensor_bets],t,torch.tensor([r]))
             elif  len(labled_board) == 5:
                 flop_cards = labled_board[:3]
                 turn_card = labled_board[3]
@@ -145,7 +145,7 @@ class CFR():
                 tensor_turn = torch.tensor([turn_card])
                 tensor_river = torch.tensor([river_card])
                 cards_formatted = (tensor_hole,tensor_flop,[tensor_turn,tensor_river])
-                self.m_v.append([cards_formatted,tensor_bets],t,torch.tensor([r]))
+                self.m_v[p].append([cards_formatted,tensor_bets],t,torch.tensor([r]))
             return v_o 
             #insert into m_V
         else:
@@ -164,7 +164,7 @@ class CFR():
                 tensor_flop = torch.tensor([flop_cards])
                 cards_formatted = (tensor_hole,tensor_flop,[])
                 o = self.strat_model.forward(cards_formatted,tensor_bets)
-                self.m_p.append([cards_formatted,tensor_bets],t,o)
+                self.m_pi.append([cards_formatted,tensor_bets],t,o)
             elif len(labled_board) == 4:
                 flop_cards = labled_board[:3]
                 turn_card = labled_board[3]
@@ -172,7 +172,7 @@ class CFR():
                 tensor_turn = torch.tensor([turn_card])
                 cards_formatted = (tensor_hole,tensor_flop,[tensor_turn])
                 o = self.strat_model.forward(cards_formatted,tensor_bets)
-                self.m_p.append([cards_formatted,tensor_bets],t,o)
+                self.m_pi.append([cards_formatted,tensor_bets],t,o)
             elif  len(labled_board) == 5:
                 flop_cards = labled_board[:3]
                 turn_card = labled_board[3]
@@ -182,7 +182,7 @@ class CFR():
                 tensor_river = torch.tensor([river_card])
                 cards_formatted = (tensor_hole,tensor_flop,[tensor_turn,tensor_river])
                 o = self.strat_model.forward(cards_formatted,tensor_bets)
-                self.m_p.append([cards_formatted,tensor_bets],t,o)
+                self.m_pi.append([cards_formatted,tensor_bets],t,o)
             A = self.get_actions(h)
 
             a = choices(A,o[0].tolist())
@@ -247,5 +247,14 @@ cards = ( torch.tensor(hole),torch.tensor(board), [torch.tensor(turn)])
 #mase sure there is enough buffering/padding for bets 
 bets = [[0,-1,0,-1,-1, 0, 0,0,0,0]]
 print(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ))
-bets = [[0,-1,0,-1,-1]]
-print(DeepCFRModel(2,5,4).forward(cards,torch.tensor(bets) ))
+
+bets1 = [[0,-1,0,-1,-1]]
+print(DeepCFRModel(2,5,4).forward(cards,torch.tensor(bets1) ))
+
+print(DeepCFRModel(2,10,4).loss(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ),DeepCFRModel(2,5,4).forward(cards,torch.tensor(bets1) ),2).backward)
+optimizer = optim.Adam(DeepCFRModel(2,10,4).parameters())
+
+optimizer.zero_grad()
+DeepCFRModel(2,10,4).loss(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ),DeepCFRModel(2,5,4).forward(cards,torch.tensor(bets1) ),2).backward
+
+optimizer.step()
