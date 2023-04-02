@@ -8,16 +8,16 @@ import torch
 from pokergame import poker_game
 from pokerface import *
 
-BET_PADDING = 100
+BET_PADDING = 1000
 CARD_TYPES = 2
 NACTIONS = 3
 class CFR():
-    def __init__(self,players):
-        self.m_v = [[] for p in range(len(players))]
+    def __init__(self,player_num):
+        self.m_v = [[] for p in range(player_num)]
         self.m_pi = []
         self.value_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
         self.strat_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
-        self.card_to_label = self.card_to_label(StandardDeck())
+        self.card_to_label = self.cards_to_num_dic_init(StandardDeck())
 
 
     # TODO 
@@ -29,12 +29,13 @@ class CFR():
  
         for t in range(T):
             deck = StandardDeck()
-            players = [Player(i,[deck.draw(),deck.draw()]) for i in range(player_num)]
+            players = [Player(i,deck.draw(2)) for i in range(player_num)]
             board = []
-
+            print(players)
             for p in range(len(players)):
                 for k in range(K):
-                    self.traversal([],p,players,board,t,10, 4,8,1,deck )
+                    print(p,k)
+                    self.traversal([],p,players,board,t,10, 4,8,1,deck,0,0)
                 # train model 
                 self.value_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
                 optimizer = optim.Adam(self.value_model.parameters())
@@ -53,26 +54,32 @@ class CFR():
         optimizer = optim.Adam(self.strat_model.parameters())
         cards = [i[0][0] for i in self.m_pi]
         bets = [i[0][1] for i in self.m_pi]
-        target_regret = [i[2] for i in self.m_pi]
+        target_strategy = [i[2] for i in self.m_pi]
         t_val = [i[1] for i in self.m_pi]
         for e in range(100):
             optimizer.zero_grad()
             pred = self.strat_model.forward(cards,bets) # switch out when not exhuasted
             loss = self.strat_model.loss(pred,target_strategy,t_val)
             loss.backwards()
-            optimizer.step()
+            optimizer.step() 
         pass            
 
 # g is actions i that round
-    def traversal(self,h,p ,players,board,t,cur_bet, min_bet,max_bet,round,deck):
+    def traversal(self,h,p ,players,board,t,cur_bet, min_bet,max_bet,round,deck,depth, fold_pool):
+        print("player current",len(players))
+        print(h)
+        if depth >= 40:
+            print("Depth kill")
+            return 0
         if poker_game().is_terminal(round, len(players) ):
             return poker_game().util(h,p,players,board)
         # what does a chance node do in poker, it is adding a new card to the board
-        elif poker_game().is_chance(players,round):
+        elif poker_game().is_chance(players):
             # get number of cards left in deck
             # pick one randomly
             # add to board and history
-            # done 
+            # done
+            print("chance")
             if round == 1:
                 board.append(deck.draw(3))
             else:
@@ -84,20 +91,21 @@ class CFR():
                 pl.set_last_action(None) 
 
             round += 1
-            return self.traversal(h,p ,new_players,board,t,cur_bet, min_bet,max_bet,round,deck) 
+            depth += 1
+            return self.traversal(h,p ,new_players,board,t,cur_bet, min_bet,max_bet,round,deck, depth, fold_pool) 
         
         elif poker_game().current_player(players).ID() == p:
             # make a regret matching function
-            #
             o = 0 # this will be generated from neural network
             v = {}
             v_o = 0
             r = {}
-            for a in self.get_actions(players,round):
+            for a in poker_game().get_actions(players,round):
                 h_new = list(h)
                 h_new.append(a)
                 new_players = list(players)
                 new_players[0].set_last_action(a)
+
                 if a == "bet":
                     if round < 3:
                         cur_bet += min_bet
@@ -108,11 +116,15 @@ class CFR():
                     new_players[0].set_bet_amt(cur_bet)
                 
                 if a == "fold":
+                    fold_pool += new_players[0].get_bet_amt()
                     new_players = new_players[1:]
                 else:
-                    new_players = new_players[1:] + new_players[0]
-
-                v[a] = self.traversal(h_new,p,new_players,board,t,cur_bet, min_bet, max_bet, round)
+                    last_player = new_players[0]
+                    new_players = new_players[1:]
+                    new_players.append(last_player)
+                print([i.ID() for i in new_players])
+                depth += 1
+                v[a] = self.traversal(h_new,p,new_players,board,t,cur_bet, min_bet, max_bet, round,deck,depth,fold_pool)
                 v_o += o[a] * v[a]
             for a in self.get_actions(h):
                 #work out what data type r(I,a) should be
@@ -145,7 +157,7 @@ class CFR():
                 tensor_turn = torch.tensor([turn_card])
                 tensor_river = torch.tensor([river_card])
                 cards_formatted = (tensor_hole,tensor_flop,[tensor_turn,tensor_river])
-                self.m_v[p].append([cards_formatted,tensor_bets],t,torch.tensor([r]))
+                self.m_v[p].append([[cards_formatted,tensor_bets],t,torch.tensor([r])])
             return v_o 
             #insert into m_V
         else:
@@ -155,11 +167,21 @@ class CFR():
             o = None # add neural network
             labled_hole = self.process_card_labels(players[0].get_cards())
             tensor_hole = torch.tensor([labled_hole])
+
             labled_bets = self.history_to_bet(h)
             tensor_bets = torch.tensor([labled_bets])
             labled_board = self.process_card_labels(board)
             # should we include preflop
-            if len(labled_board) == 3:
+            if len(labled_board) == 0:
+                flop_cards = [-1,-1,-1]
+                tensor_flop = torch.tensor([flop_cards])
+                cards_formatted = (tensor_hole,tensor_flop,[])
+
+                o = self.strat_model.forward(cards_formatted,tensor_bets)
+                self.m_pi.append([[cards_formatted,tensor_bets],t,o])
+
+
+            elif len(labled_board) == 3:
                 flop_cards = labled_board
                 tensor_flop = torch.tensor([flop_cards])
                 cards_formatted = (tensor_hole,tensor_flop,[])
@@ -183,9 +205,10 @@ class CFR():
                 cards_formatted = (tensor_hole,tensor_flop,[tensor_turn,tensor_river])
                 o = self.strat_model.forward(cards_formatted,tensor_bets)
                 self.m_pi.append([cards_formatted,tensor_bets],t,o)
-            A = self.get_actions(h)
-
-            a = choices(A,o[0].tolist())
+            A = poker_game().get_actions(players,round)
+            print(o[0].tolist())
+            a = choices(A,o[0].tolist())[0]
+            print(a)
             h_new = list(h)
             h_new.append(a)
             new_players = list(players)
@@ -200,11 +223,15 @@ class CFR():
                 new_players[0].set_bet_amt(cur_bet)
             
             if a == "fold":
+                fold_pool += new_players[0].get_bet_amt()
                 new_players = new_players[1:]
             else:
-                new_players = new_players[1:] + new_players[0]
-                
-            return self.traversal(h_new,p,new_players,board,t,cur_bet, min_bet,max_bet,round)
+                last_player = new_players[0]
+                new_players = new_players[1:]
+                new_players.append(last_player)
+            print([i.ID() for i in new_players])
+            depth += 1
+            return self.traversal(h_new,p,new_players,board,t,cur_bet, min_bet,max_bet,round,deck, depth, fold_pool)
 
             pass
     def cards_to_num_dic_init(self,deck):
@@ -229,32 +256,36 @@ class CFR():
                 bets.append(1)
             else:
                 bets.append(0)
+
         return self.bet_padding(bets)
     def bet_padding(self,bets:list):
         padding = [0 for i in range(BET_PADDING - len(bets))]
-        return bets.extend(padding)
+        bets.extend(padding)
+        return bets
     
     
 
-players = [Player(1, []),Player(2,[]), Player(3,[])]
+# players = [Player(1, []),Player(2,[]), Player(3,[])]
 
-print(poker_game().is_chance(players,0))
-hole = [[1,2]]
-print(torch.tensor(hole).shape)
-board = [[3, 4,5,6]]
-turn = [[7]]
-cards = ( torch.tensor(hole),torch.tensor(board), [torch.tensor(turn)])
-#mase sure there is enough buffering/padding for bets 
-bets = [[0,-1,0,-1,-1, 0, 0,0,0,0]]
-print(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ))
+# print(poker_game().is_chance(players))
+# hole = [[1,2]]
+# print(torch.tensor(hole).shape)
+# board = [[3, 4,5,6]]
+# turn = [[7]]
+# cards = ( torch.tensor(hole),torch.tensor(board), [torch.tensor(turn)])
+# #mase sure there is enough buffering/padding for bets 
+# bets = [[0,-1,0,-1,-1, 0, 0,0,0,0]]
+# print(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ))
 
-bets1 = [[0,-1,0,-1,-1]]
-print(DeepCFRModel(2,5,4).forward(cards,torch.tensor(bets1) ))
+# bets1 = [[0,-1,0,-1,-1]]
+# print(DeepCFRModel(2,5,4).forward(cards,torch.tensor(bets1) ))
 
-print(DeepCFRModel(2,10,4).loss(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ),DeepCFRModel(2,5,4).forward(cards,torch.tensor(bets1) ),2).backward)
-optimizer = optim.Adam(DeepCFRModel(2,10,4).parameters())
+# print(DeepCFRModel(2,10,4).loss(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ),DeepCFRModel(2,5,4).forward(cards,torch.tensor(bets1) ),2).backward)
+# optimizer = optim.Adam(DeepCFRModel(2,10,4).parameters())
 
-optimizer.zero_grad()
-DeepCFRModel(2,10,4).loss(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ),DeepCFRModel(2,5,4).forward(cards,torch.tensor(bets1) ),2).backward
+# optimizer.zero_grad()
+# DeepCFRModel(2,10,4).loss(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ),DeepCFRModel(2,5,4).forward(cards,torch.tensor(bets1) ),2).backward
 
-optimizer.step()
+# optimizer.step()
+
+CFR(3).deepcfr(1,3,2)
