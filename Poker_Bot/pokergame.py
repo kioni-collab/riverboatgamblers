@@ -4,29 +4,37 @@ class poker_game:
     def __init__(self) -> None:
         pass
     
-    def is_terminal(self,round, player_num):
-        return (round == 5) or player_num == 1
+    def is_terminal(self,round, player_num, board):
+        return (round == 4) or player_num == 1 or len(board) == 5
     
-    def util(self,h,p,players,board):
+    def util(self,h,p,players,board,all_players):
         # call to unity for money won
-        evaluator = StandardEvaluator()
-        player_idx = 0
-        for i in range(len(players)):
-            if p == players[i].ID():
-                player_idx = i
-        curr_player = evaluator.evaluate_hand(
-        players[player_idx].get_cards(), board,
-        )
-        other_players = [ evaluator.evaluate_hand(
-         i.get_cards(), board,
-        ) for i in players ]
-        top_score = True if all([curr_player >= j for j in other_players]) else False
-
-        if top_score:
+        player_won = False
+        if len(players) == 1:
+            player_won  = True if players[0].ID() == p else False
+        else:    
+            evaluator = StandardEvaluator()
+            player_idx = 0
+            for i in range(len(players)):
+                if p == players[i].ID():
+                    player_idx = i
+            print(players[player_idx].get_cards())
+            curr_player = evaluator.evaluate_hand(
+            tuple(players[player_idx].get_cards()), tuple(board),
+            )
+            other_players = [ evaluator.evaluate_hand(
+            i.get_cards(), board,
+            ) for i in players ]
+            player_won = True if all([curr_player >= j for j in other_players]) else False
+        all_player_idx = -1
+        for i in range(len(all_players)):
+            if all_players[i].ID() == p:
+                all_player_idx = i
+        if player_won:
              
-            return sum([pl.get_bet_amt() for pl in players]) - players[player_idx].get_bet_amt()
+            return sum([pl.get_bet_amt() for pl in all_players]) - all_players[all_player_idx].get_bet_amt()
         else:
-            return  -players[p].get_bet_amt()
+            return  -all_players[all_player_idx ].get_bet_amt()
 
     def is_chance(self,players):
         return  all([(p.get_bet_amt() == players[0].get_bet_amt() and players[0].get_bet_amt() != 0 and p.get_last_action() is not None) for p in players]) or all([p.get_last_action() is not None and p.get_last_action() == "check" for p in players]) 

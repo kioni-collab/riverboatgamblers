@@ -158,7 +158,7 @@ def test_util_loose():
     player_2.set_last_action("call")
     player_3.set_bet_amt(12)
     player_3.set_last_action("call")
-    assert poker_game().util([], 1,[player_1,player_2,player_3],board) == -12
+    assert poker_game().util([], 1,[player_1,player_2,player_3],board, [player_1,player_2,player_3]) == -12
 
 def test_util_win():
     deck = StandardDeck()
@@ -173,4 +173,34 @@ def test_util_win():
     player_2.set_last_action("call")
     player_3.set_bet_amt(12)
     player_3.set_last_action("call")
-    assert poker_game().util([], 3,[player_1,player_2,player_3],board) == 24
+    assert poker_game().util([], 3,[player_1,player_2,player_3],board,[player_1,player_2,player_3]) == 24
+
+def test_util_fold_lose():
+    deck = StandardDeck()
+    board = deck.draw(parse_cards('Jc3d5c4hJh'))
+    player_1 = Player(1,deck.draw(parse_cards('2dAc')))
+    player_2 = Player(2,deck.draw(parse_cards('5h7s')))
+    player_3 = Player(3,deck.draw(parse_cards('7h6h')))
+    print("this good")
+    player_1.set_bet_amt(12)
+    player_1.set_last_action("bet")
+    player_2.set_bet_amt(12)
+    player_2.set_last_action("fold")
+    player_3.set_bet_amt(12)
+    player_3.set_last_action("fold")
+    assert poker_game().util([], 3,[player_1],board,[player_1,player_2,player_3]) == -12
+
+def test_util_fold_win():
+    deck = StandardDeck()
+    board = deck.draw(parse_cards('Jc3d5c4hJh'))
+    player_1 = Player(1,deck.draw(parse_cards('2dAc')))
+    player_2 = Player(2,deck.draw(parse_cards('5h7s')))
+    player_3 = Player(3,deck.draw(parse_cards('7h6h')))
+    print("this good")
+    player_1.set_bet_amt(12)
+    player_1.set_last_action("bet")
+    player_2.set_bet_amt(12)
+    player_2.set_last_action("fold")
+    player_3.set_bet_amt(12)
+    player_3.set_last_action("fold")
+    assert poker_game().util([], 1,[player_1],board,[player_1,player_2,player_3]) == 24
