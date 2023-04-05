@@ -10,7 +10,6 @@ class CardEmbedding(nn.Module):
         self.suit = nn.Embedding(4,dim)
         self.card = nn.Embedding(52,dim)
     def forward(self, input):
-        print(input.shape)
         B, num_cards = input.shape
         x = input.view(-1)
         valid  = x.ge(0).float()

@@ -28,7 +28,7 @@ class CFR():
     # find out if models are already initialized to return 0 
     def deepcfr(self,T,player_num,K):
  
-        for t in range(T):
+        for t in range(1,T+1):
             deck = StandardDeck()
             players = [Player(i,deck.draw(2)) for i in range(player_num)]
             board = []
@@ -44,42 +44,57 @@ class CFR():
                 bets = [i[0][1] for i in self.m_v[p]]
                 target_regret = [i[2] for i in self.m_v[p]]
                 t_val = [i[1] for i in self.m_v[p]]
-                for _ in range(100):
+                # print(p)
+                # print(self.m_v[p])
+                # card_format = cards[0]
+                # for c in cards[2:]:
+                #     card_format = torch.cat((card_format,c),0)
+                # print(card_format)
+                for e in range(100):
+                    all_diff_tensor = torch.empty((0,3), dtype=torch.float32)
                     for c,b,tr,tv in zip(cards,bets, target_regret,t_val):
                         optimizer.zero_grad()
                         pred = self.value_model(c,b) # switch out when not exhuasted
-                        print("predicted, target_regret", pred,tr)
-                        loss = self.value_model.loss(pred,tr,tv)
+                        all_diff_tensor = torch.cat((all_diff_tensor, pred-tr ), 0) 
+                        loss = self.strat_model.loss(pred,tr,tv)
                         loss.backward
-                        print("value model loss",loss.backward )
                         optimizer.step()
+                    print("Poker_regret_Model","Epoch", e, "RSME",torch.sqrt(torch.mean(torch.sum(torch.square(all_diff_tensor),1))).item())
+                    torch.save(self.value_model.state_dict(), "Poker_regret_Model")
         self.strat_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
         optimizer = optim.Adam(self.strat_model.parameters())
         cards = [i[0][0] for i in self.m_pi]
         bets = [i[0][1] for i in self.m_pi]
         target_strategy = [i[2] for i in self.m_pi]
         t_val = [i[1] for i in self.m_pi]
+       # print(cards)
+        # card_format = cards[0]
+        # for c in cards:
+        #     print("gg")
+        #     print(card_format)
+        #     print(c)
+        #     card_format = torch.cat((card_format,c),0)
+        # print(card_format)
         for e in range(100):
+            all_diff_tensor = torch.empty((0,3), dtype=torch.float32)
             for c,b,ts,tv in zip(cards,bets, target_strategy,t_val):
                 optimizer.zero_grad()
                 pred = self.strat_model.forward(c,b) # switch out when not exhuasted
-                print("predicted, target_strat", pred,ts)
+                all_diff_tensor = torch.cat((all_diff_tensor, pred-ts ), 0) 
                 loss = self.strat_model.loss(pred,ts,tv)
                 loss.backward
-                print("strat model loss",loss.backward )
                 optimizer.step() 
+            print("Poker_strategy_Model","Epoch", e, "RSME",torch.sqrt(torch.mean(torch.sum(torch.square(all_diff_tensor),1))).item())
+            torch.save(self.strat_model.state_dict(), "Poker_strategy_Model")
         pass            
 
 # g is actions i that round
     def traversal(self,h,p ,players,board,t,cur_bet, min_bet,max_bet,round,deck,depth, all_players):
-        print("player current",len(players))
-        print(h)
         if depth >= 40:
             print("Depth kill")
             return 0
         if poker_game().is_terminal(round, len(players), board ):
-            print(len(all_players))
-            print(len(board))
+          
             return poker_game().util(h,p,players,board,all_players)
         # what does a chance node do in poker, it is adding a new card to the board
         elif poker_game().is_chance(players):
@@ -87,7 +102,7 @@ class CFR():
             # pick one randomly
             # add to board and history
             # done
-            print("chance")
+            
             if round == 1:
                 board = deck.draw(3)
             else:
@@ -110,7 +125,7 @@ class CFR():
 
             labled_bets = self.history_to_bet(h)
             tensor_bets = torch.tensor([labled_bets])
-            print(board)
+            
             labled_board = self.process_card_labels(board)
             # should we include preflop
             if len(labled_board) == 0:
@@ -151,7 +166,7 @@ class CFR():
             actions = poker_game().get_actions(players,round)
             for i in range(len(actions)):
                 o[actions[i]] = o_net[0].tolist()[i]
-            print(0)
+            
             for a in actions:
                 h_new = list(h)
                 h_new.append(a)
@@ -176,11 +191,10 @@ class CFR():
                     last_player = new_players[0]
                     new_players = new_players[1:]
                     new_players.append(last_player)
-                print([i.ID() for i in new_players])
+                
                 depth += 1
                 v[a] = self.traversal(h_new,p,new_players,board,t,cur_bet, min_bet, max_bet, round,copy.deepcopy(deck),depth,new_all_players)
-                print("o[a] , v[a]", o[a] , v[a])
-                print("o[a] * v[a]", o[a] * v[a])
+                
                 v_o += o[a] * v[a]
             for a in actions:
                 #work out what data type r(I,a) should be
@@ -192,7 +206,14 @@ class CFR():
             labled_bets = self.history_to_bet(h)
             tensor_bets = torch.tensor([labled_bets])
             labled_board = self.process_card_labels(board)
-            # should we include preflop            
+            # should we include preflop   
+            if len(labled_board) == 0:
+                flop_cards = [-1,-1,-1]
+                tensor_flop = torch.tensor([flop_cards])
+                cards_formatted = (tensor_hole,tensor_flop,[])
+
+                o = self.strat_model.forward(cards_formatted,tensor_bets)
+                self.m_v[p].append([[cards_formatted,tensor_bets],t,o])         
             if len(labled_board) == 3:
                 flop_cards = labled_board
                 tensor_flop = torch.tensor([flop_cards])
@@ -226,7 +247,7 @@ class CFR():
 
             labled_bets = self.history_to_bet(h)
             tensor_bets = torch.tensor([labled_bets])
-            print(board)
+            
             labled_board = self.process_card_labels(board)
             # should we include preflop
             if len(labled_board) == 0:
@@ -263,10 +284,9 @@ class CFR():
                 o = self.strat_model.forward(cards_formatted,tensor_bets)
                 self.m_pi.append([[cards_formatted,tensor_bets],t,o])
             A = poker_game().get_actions(players,round)
-            print("round",round)
-            print(o[0].tolist())
+            
             a = choices(A,o[0].tolist())[0]
-            print(a)
+            
             h_new = list(h)
             h_new.append(a)
             new_players = list(players)
@@ -289,7 +309,7 @@ class CFR():
                 last_player = new_players[0]
                 new_players = new_players[1:]
                 new_players.append(last_player)
-            print([i.ID() for i in new_players])
+            
             depth += 1
             return self.traversal(h_new,p,new_players,board,t,cur_bet, min_bet,max_bet,round,copy.deepcopy(deck), depth, new_all_players)
 
@@ -312,7 +332,7 @@ class CFR():
         
     def process_card_labels(self,cards):
         card_labels = []
-        print(cards)
+        
         for i in cards:
            
             card_labels.append(self.card_to_label[i])
@@ -334,17 +354,17 @@ class CFR():
     
     
 
-# players = [Player(1, []),Player(2,[]), Player(3,[])]
+players = [Player(1, []),Player(2,[]), Player(3,[])]
 
-# print(poker_game().is_chance(players))
-# hole = [[1,2]]
-# print(torch.tensor(hole).shape)
-# board = [[3, 4,5,6]]
-# turn = [[7]]
-# cards = ( torch.tensor(hole),torch.tensor(board), [torch.tensor(turn)])
-# #mase sure there is enough buffering/padding for bets 
-# bets = [[0,-1,0,-1,-1, 0, 0,0,0,0]]
-# print(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ))
+print(poker_game().is_chance(players))
+hole = [[1,2]]
+print(torch.tensor(hole).shape)
+board = [[3, 4,5,6]]
+turn = [[7]]
+cards = ( torch.tensor(hole),torch.tensor(board), [torch.tensor(turn)])
+#mase sure there is enough buffering/padding for bets 
+bets = [[0,-1,0,-1,-1, 0, 0,0,0,0]]
+print(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ))
 
 # bets1 = [[0,-1,0,-1,-1]]
 # print(DeepCFRModel(2,5,4).forward(cards,torch.tensor(bets1) ))
@@ -357,4 +377,4 @@ class CFR():
 
 # optimizer.step()
 
-CFR(3).deepcfr(1,3,2)
+CFR(3).deepcfr(3,3,3)
