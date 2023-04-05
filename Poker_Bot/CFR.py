@@ -59,7 +59,7 @@ class CFR():
                         loss = self.strat_model.loss(pred,tr,tv)
                         loss.backward(retain_graph=True)
                         optimizer.step()
-                    print("Poker_regret_Model","Epoch", e, "RSME",torch.sqrt(torch.mean(torch.sum(torch.square(all_diff_tensor),1))).item())
+                    print("player:", p, "Poker_regret_Model","Epoch", e, "RSME",torch.sqrt(torch.mean(torch.sum(torch.square(all_diff_tensor),1))).item())
                     torch.save(self.value_model.state_dict(), "Poker_regret_Model")
         self.strat_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
         optimizer = optim.Adam(self.strat_model.parameters())
@@ -119,7 +119,7 @@ class CFR():
         
         elif poker_game().current_player(players).ID() == p:
             # make a regret matching function
-            o_net = None # add neural network
+            r_net = None # add neural network
             labled_hole = self.process_card_labels(players[0].get_cards())
             tensor_hole = torch.tensor([labled_hole])
 
@@ -133,7 +133,7 @@ class CFR():
                 tensor_flop = torch.tensor([flop_cards])
                 cards_formatted = (tensor_hole,tensor_flop,[])
 
-                o_net = self.value_model.forward(cards_formatted,tensor_bets)
+                r_net = self.value_model.forward(cards_formatted,tensor_bets)
                
 
 
@@ -141,14 +141,14 @@ class CFR():
                 flop_cards = labled_board
                 tensor_flop = torch.tensor([flop_cards])
                 cards_formatted = (tensor_hole,tensor_flop,[])
-                o_net = self.value_model.forward(cards_formatted,tensor_bets)
+                r_net = self.value_model.forward(cards_formatted,tensor_bets)
             elif len(labled_board) == 4:
                 flop_cards = labled_board[:3]
                 turn_card = labled_board[3]
                 tensor_flop = torch.tensor([flop_cards])
                 tensor_turn = torch.tensor([turn_card])
                 cards_formatted = (tensor_hole,tensor_flop,[tensor_turn])
-                o_net = self.value_model.forward(cards_formatted,tensor_bets)
+                r_net = self.value_model.forward(cards_formatted,tensor_bets)
             elif  len(labled_board) == 5:
                 flop_cards = labled_board[:3]
                 turn_card = labled_board[3]
@@ -157,13 +157,17 @@ class CFR():
                 tensor_turn = torch.tensor([turn_card])
                 tensor_river = torch.tensor([river_card])
                 cards_formatted = (tensor_hole,tensor_flop,[tensor_turn,tensor_river])
-                o_net = self.value_model.forward(cards_formatted,tensor_bets)
+                r_net = self.strat_model.forward(cards_formatted,tensor_bets)
+            
             o = {}
 
             v = {}
             v_o = 0
             r = []
             actions = poker_game().get_actions(players,round)
+            o_net = self.regret_matching(r_net,actions)
+            print(o_net)
+            print(actions)
             for i in range(len(actions)):
                 o[actions[i]] = o_net[0].tolist()[i]
             
@@ -241,7 +245,7 @@ class CFR():
             # Insert the infoset and its action probabilities (I, t, σt(I)) into the strategy memory MΠ
             # edit the regret_matching stuff so it uses the right cards
 
-            o = None # add neural network
+            r_net = None # add neural network
             labled_hole = self.process_card_labels(players[0].get_cards())
             tensor_hole = torch.tensor([labled_hole])
 
@@ -250,12 +254,15 @@ class CFR():
             
             labled_board = self.process_card_labels(board)
             # should we include preflop
+            A = poker_game().get_actions(players,round)
+            
             if len(labled_board) == 0:
                 flop_cards = [-1,-1,-1]
                 tensor_flop = torch.tensor([flop_cards])
                 cards_formatted = (tensor_hole,tensor_flop,[])
 
-                o = self.strat_model.forward(cards_formatted,tensor_bets)
+                r_net = self.strat_model.forward(cards_formatted,tensor_bets)
+                o = self.regret_matching(r_net,A)
                 self.m_pi.append([[cards_formatted,tensor_bets],t,o])
 
 
@@ -263,7 +270,8 @@ class CFR():
                 flop_cards = labled_board
                 tensor_flop = torch.tensor([flop_cards])
                 cards_formatted = (tensor_hole,tensor_flop,[])
-                o = self.strat_model.forward(cards_formatted,tensor_bets)
+                r_net = self.strat_model.forward(cards_formatted,tensor_bets)
+                o = self.regret_matching(r_net,A)
                 self.m_pi.append([[cards_formatted,tensor_bets],t,o])
             elif len(labled_board) == 4:
                 flop_cards = labled_board[:3]
@@ -271,7 +279,8 @@ class CFR():
                 tensor_flop = torch.tensor([flop_cards])
                 tensor_turn = torch.tensor([turn_card])
                 cards_formatted = (tensor_hole,tensor_flop,[tensor_turn])
-                o = self.strat_model.forward(cards_formatted,tensor_bets)
+                r_net = self.strat_model.forward(cards_formatted,tensor_bets)
+                o = self.regret_matching(r_net,A)
                 self.m_pi.append([[cards_formatted,tensor_bets],t,o])
             elif  len(labled_board) == 5:
                 flop_cards = labled_board[:3]
@@ -281,10 +290,11 @@ class CFR():
                 tensor_turn = torch.tensor([turn_card])
                 tensor_river = torch.tensor([river_card])
                 cards_formatted = (tensor_hole,tensor_flop,[tensor_turn,tensor_river])
-                o = self.strat_model.forward(cards_formatted,tensor_bets)
+                r_net = self.strat_model.forward(cards_formatted,tensor_bets)
+                o = self.regret_matching(r_net,A)
                 self.m_pi.append([[cards_formatted,tensor_bets],t,o])
-            A = poker_game().get_actions(players,round)
             
+            print(o)
             a = choices(A,o[0].tolist())[0]
             
             h_new = list(h)
@@ -320,6 +330,18 @@ class CFR():
             if players[i].ID() == p:
                 index = i
         return index
+    
+    def regret_matching(self, reg, actions):
+        print(reg)
+        reg[reg<0] = 0
+        print(reg)
+        if torch.sum(reg) > 0:
+
+            return torch.div(reg,torch.sum(reg))
+        else:
+            act = [1/len(actions) for i in range(len(actions))]
+            print("non neg ",torch.tensor([act]) )
+            return torch.tensor([act])
 
     def cards_to_num_dic_init(self,deck):
         counter = 0
@@ -377,4 +399,4 @@ print(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ))
 
 # optimizer.step()
 
-CFR(3).deepcfr(3,3,3)
+CFR(3).deepcfr(1,3,2)
