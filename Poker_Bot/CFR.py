@@ -399,4 +399,4 @@ print(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ))
 
 # optimizer.step()
 
-CFR(3).deepcfr(1,3,2)
+CFR(3).deepcfr(2,3,2)

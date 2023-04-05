@@ -12,20 +12,23 @@ class poker_game:
         player_won = False
         if len(players) == 1:
             player_won  = True if players[0].ID() == p else False
-        else:    
-            evaluator = StandardEvaluator()
-            player_idx = 0
-            for i in range(len(players)):
-                if p == players[i].ID():
-                    player_idx = i
-            print(players[player_idx].get_cards())
-            curr_player = evaluator.evaluate_hand(
-            tuple(players[player_idx].get_cards()), tuple(board),
-            )
-            other_players = [ evaluator.evaluate_hand(
-            i.get_cards(), board,
-            ) for i in players ]
-            player_won = True if all([curr_player >= j for j in other_players]) else False
+        else:  
+            try:  
+                evaluator = StandardEvaluator()
+                player_idx = 0
+                for i in range(len(players)):
+                    if p == players[i].ID():
+                        player_idx = i
+                print(players[player_idx].get_cards())
+                curr_player = evaluator.evaluate_hand(
+                tuple(players[player_idx].get_cards()), tuple(board),
+                )
+                other_players = [ evaluator.evaluate_hand(
+                i.get_cards(), board,
+                ) for i in players ]
+                player_won = True if all([curr_player >= j for j in other_players]) else False
+            except:
+                return 0 
         all_player_idx = -1
         for i in range(len(all_players)):
             if all_players[i].ID() == p:
