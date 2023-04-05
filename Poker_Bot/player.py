@@ -4,6 +4,7 @@ class Player():
         self.cards = cards
         self.last_action = None
         self.bet_amt = 0
+        self.bets_this_round  = 0
     def set_bet_amt(self,amt):
         self.bet_amt = amt
     def incri_bet(self,amt):
@@ -18,4 +19,5 @@ class Player():
         return self.cards
     def ID(self):
         return self.id
+    
 
