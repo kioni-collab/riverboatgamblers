@@ -57,7 +57,7 @@ class CFR():
                         pred = self.value_model(c,b) # switch out when not exhuasted
                         all_diff_tensor = torch.cat((all_diff_tensor, pred-tr ), 0) 
                         loss = self.strat_model.loss(pred,tr,tv)
-                        loss.backward
+                        loss.backward(retain_graph=True)
                         optimizer.step()
                     print("Poker_regret_Model","Epoch", e, "RSME",torch.sqrt(torch.mean(torch.sum(torch.square(all_diff_tensor),1))).item())
                     torch.save(self.value_model.state_dict(), "Poker_regret_Model")
@@ -82,7 +82,7 @@ class CFR():
                 pred = self.strat_model.forward(c,b) # switch out when not exhuasted
                 all_diff_tensor = torch.cat((all_diff_tensor, pred-ts ), 0) 
                 loss = self.strat_model.loss(pred,ts,tv)
-                loss.backward
+                loss.backward(retain_graph=True)
                 optimizer.step() 
             print("Poker_strategy_Model","Epoch", e, "RSME",torch.sqrt(torch.mean(torch.sum(torch.square(all_diff_tensor),1))).item())
             torch.save(self.strat_model.state_dict(), "Poker_strategy_Model")
