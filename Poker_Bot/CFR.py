@@ -8,6 +8,7 @@ import torch
 from pokergame import poker_game
 from pokerface import *
 import copy 
+import pathlib
 
 BET_PADDING = 1000
 CARD_TYPES = 2
@@ -18,6 +19,7 @@ class CFR():
         self.m_pi = []
         self.value_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
         self.strat_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
+        
         self.card_to_label = self.cards_to_num_dic_init(StandardDeck())
 
 
@@ -60,9 +62,15 @@ class CFR():
                         loss.backward(retain_graph=True)
                         optimizer.step()
                     print("player:", p, "Poker_regret_Model","Epoch", e, "RSME",torch.sqrt(torch.mean(torch.sum(torch.square(all_diff_tensor),1))).item())
-                    torch.save(self.value_model.state_dict(), "Poker_regret_Model")
+                    torch.save(self.value_model.state_dict(), "Poker_regret_Model.pt")
         self.strat_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
         optimizer = optim.Adam(self.strat_model.parameters())
+        if pathlib.Path("Poker_strategy_Model.pt").exists():
+            checkpoint = torch.load("Poker_strategy_Model.pt")
+            self.strat_model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.strat_model.eval()
+       
         cards = [i[0][0] for i in self.m_pi]
         bets = [i[0][1] for i in self.m_pi]
         target_strategy = [i[2] for i in self.m_pi]
@@ -85,7 +93,12 @@ class CFR():
                 loss.backward(retain_graph=True)
                 optimizer.step() 
             print("Poker_strategy_Model","Epoch", e, "RSME",torch.sqrt(torch.mean(torch.sum(torch.square(all_diff_tensor),1))).item())
-            torch.save(self.strat_model.state_dict(), "Poker_strategy_Model")
+            torch.save({
+            
+            'model_state_dict': self.strat_model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            
+            }, "Poker_strategy_Model.pt")
         pass            
 
 # g is actions i that round
@@ -399,4 +412,4 @@ print(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ))
 
 # optimizer.step()
 
-CFR(3).deepcfr(20,3,12)
+CFR(3).deepcfr(1,2,2)
