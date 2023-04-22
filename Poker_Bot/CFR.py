@@ -28,78 +28,79 @@ class CFR():
     # may need to change how we pass network parametrs through traversal
     # may need infoset map as well
     # find out if models are already initialized to return 0 
-    def deepcfr(self,T,player_num,K):
- 
-        for t in range(1,T+1):
-            deck = StandardDeck()
-            players = [Player(i,deck.draw(2)) for i in range(player_num)]
-            board = []
-            print(players)
-            for p in range(len(players)):
-                for k in range(K):
-                    print(p,k)
-                    self.traversal([],p,players,board,t,10, 4,8,1,copy.deepcopy(deck),0,players)
-                # train model 
-                self.value_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
-                optimizer = optim.Adam(self.value_model.parameters())
-                cards = [i[0][0] for i in self.m_v[p]]
-                bets = [i[0][1] for i in self.m_v[p]]
-                target_regret = [i[2] for i in self.m_v[p]]
-                t_val = [i[1] for i in self.m_v[p]]
-                # print(p)
-                # print(self.m_v[p])
-                # card_format = cards[0]
-                # for c in cards[2:]:
-                #     card_format = torch.cat((card_format,c),0)
-                # print(card_format)
-                for e in range(100):
-                    all_diff_tensor = torch.empty((0,3), dtype=torch.float32)
-                    for c,b,tr,tv in zip(cards,bets, target_regret,t_val):
-                        optimizer.zero_grad()
-                        pred = self.value_model(c,b) # switch out when not exhuasted
-                        all_diff_tensor = torch.cat((all_diff_tensor, pred-tr ), 0) 
-                        loss = self.strat_model.loss(pred,tr,tv)
-                        loss.backward(retain_graph=True)
-                        optimizer.step()
-                    print("player:", p, "Poker_regret_Model","Epoch", e, "RSME",torch.sqrt(torch.mean(torch.sum(torch.square(all_diff_tensor),1))).item())
-                    torch.save(self.value_model.state_dict(), "Poker_regret_Model.pt")
-        self.strat_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
-        optimizer = optim.Adam(self.strat_model.parameters())
-        if pathlib.Path("Poker_strategy_Model.pt").exists():
-            checkpoint = torch.load("Poker_strategy_Model.pt")
-            self.strat_model.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            self.strat_model.eval()
-       
-        cards = [i[0][0] for i in self.m_pi]
-        bets = [i[0][1] for i in self.m_pi]
-        target_strategy = [i[2] for i in self.m_pi]
-        t_val = [i[1] for i in self.m_pi]
-       # print(cards)
-        # card_format = cards[0]
-        # for c in cards:
-        #     print("gg")
-        #     print(card_format)
-        #     print(c)
-        #     card_format = torch.cat((card_format,c),0)
-        # print(card_format)
-        for e in range(100):
-            all_diff_tensor = torch.empty((0,3), dtype=torch.float32)
-            for c,b,ts,tv in zip(cards,bets, target_strategy,t_val):
-                optimizer.zero_grad()
-                pred = self.strat_model.forward(c,b) # switch out when not exhuasted
-                all_diff_tensor = torch.cat((all_diff_tensor, pred-ts ), 0) 
-                loss = self.strat_model.loss(pred,ts,tv)
-                loss.backward(retain_graph=True)
-                optimizer.step() 
-            print("Poker_strategy_Model","Epoch", e, "RSME",torch.sqrt(torch.mean(torch.sum(torch.square(all_diff_tensor),1))).item())
-            torch.save({
-            
-            'model_state_dict': self.strat_model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            
-            }, "Poker_strategy_Model.pt")
-        pass            
+    def deepcfr(self,J, T,player_num,K):
+        for j in range(J):
+            for t in range(1,T+1):
+                deck = StandardDeck()
+                players = [Player(i,deck.draw(2)) for i in range(player_num)]
+                board = []
+                print(players)
+                for p in range(len(players)):
+                    for k in range(K):
+                        print(p,k)
+                        self.traversal([],p,players,board,t,10, 4,8,1,copy.deepcopy(deck),0,players)
+                    # train model 
+                    self.value_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
+                    optimizer = optim.Adam(self.value_model.parameters())
+                    cards = [i[0][0] for i in self.m_v[p]]
+                    bets = [i[0][1] for i in self.m_v[p]]
+                    target_regret = [i[2] for i in self.m_v[p]]
+                    t_val = [i[1] for i in self.m_v[p]]
+                    # print(p)
+                    # print(self.m_v[p])
+                    # card_format = cards[0]
+                    # for c in cards[2:]:
+                    #     card_format = torch.cat((card_format,c),0)
+                    # print(card_format)
+                    for e in range(100):
+                        all_diff_tensor = torch.empty((0,3), dtype=torch.float32)
+                        for c,b,tr,tv in zip(cards,bets, target_regret,t_val):
+                            optimizer.zero_grad()
+                            pred = self.value_model(c,b) # switch out when not exhuasted
+                            all_diff_tensor = torch.cat((all_diff_tensor, pred-tr ), 0) 
+                            loss = self.strat_model.loss(pred,tr,tv)
+                            loss.backward(retain_graph=True)
+                            optimizer.step()
+                        print("player:", p, "Poker_regret_Model","Epoch", e, "RSME",torch.sqrt(torch.mean(torch.sum(torch.square(all_diff_tensor),1))).item())
+                        torch.save(self.value_model.state_dict(), "Poker_regret_Model.pt")
+            self.strat_model = DeepCFRModel(CARD_TYPES,BET_PADDING,NACTIONS)
+            optimizer = optim.Adam(self.strat_model.parameters())
+            if pathlib.Path("Poker_strategy_Model.pt").exists():
+                checkpoint = torch.load("Poker_strategy_Model.pt")
+                self.strat_model.load_state_dict(checkpoint['model_state_dict'])
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                self.strat_model.eval()
+        
+            cards = [i[0][0] for i in self.m_pi]
+            bets = [i[0][1] for i in self.m_pi]
+            target_strategy = [i[2] for i in self.m_pi]
+            t_val = [i[1] for i in self.m_pi]
+        # print(cards)
+            # card_format = cards[0]
+            # for c in cards:
+            #     print("gg")
+            #     print(card_format)
+            #     print(c)
+            #     card_format = torch.cat((card_format,c),0)
+            # print(card_format)
+            for e in range(100):
+                all_diff_tensor = torch.empty((0,3), dtype=torch.float32)
+                for c,b,ts,tv in zip(cards,bets, target_strategy,t_val):
+                    optimizer.zero_grad()
+                    pred = self.strat_model.forward(c,b) # switch out when not exhuasted
+                    all_diff_tensor = torch.cat((all_diff_tensor, pred-ts ), 0) 
+                    print(ts)
+                    loss = self.strat_model.loss(pred,ts,tv)
+                    loss.backward(retain_graph=True)
+                    optimizer.step() 
+                print("Poker_strategy_Model","Epoch", e, "RSME",torch.sqrt(torch.mean(torch.sum(torch.square(all_diff_tensor),1))).item())
+                torch.save({
+                
+                'model_state_dict': self.strat_model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                
+                }, "Poker_strategy_Model.pt")
+            pass            
 
 # g is actions i that round
     def traversal(self,h,p ,players,board,t,cur_bet, min_bet,max_bet,round,deck,depth, all_players):
@@ -412,4 +413,4 @@ print(DeepCFRModel(2,10,4).forward(cards,torch.tensor(bets) ))
 
 # optimizer.step()
 
-CFR(3).deepcfr(1,2,2)
+CFR(3).deepcfr(5,10,3,3)
