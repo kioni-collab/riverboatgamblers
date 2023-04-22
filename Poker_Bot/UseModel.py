@@ -42,6 +42,7 @@ def model_nextmove(game__state):
         strat_model.load_state_dict(checkpoint['model_state_dict'])
         strat_model.eval()
     strat  = strat_model.forward(cards,bet_history)
+    print(strat[0].tolist())
     return choices(actions,strat[0].tolist())[0]
     
 def cards_to_num_dic_init(deck):
@@ -77,10 +78,11 @@ def bet_padding(bets:list):
 card_to_label = cards_to_num_dic_init(StandardDeck())
 game_actions = {
 
-"hand": ["4h", "As"],
-"board": ["Td", "5d", "8c", "Qd"],
-"history": ["bet", "call", "call", "bet", "bet", "bet", "call", "bet"],
+"hand": ["Qd", "Kd"],
+"board": ["Jd", "Td", "Ad", "5h", "6c"],
+"history": ["bet", "call", "call", "bet", "bet", "bet", "call", "bet", "call", "fold", "bet"],
 "actions": ["bet", "call", "fold"]
 }
 
 print(model_nextmove(game_actions))
+
