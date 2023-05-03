@@ -29,7 +29,9 @@ class CFR():
     # may need infoset map as well
     # find out if models are already initialized to return 0 
     def deepcfr(self,J, T,player_num,K):
-        for j in range(J):
+        while(True):
+            self.m_v = [[] for p in range(player_num)]
+            self.m_pi = []
             for t in range(1,T+1):
                 deck = StandardDeck()
                 players = [Player(i,deck.draw(2)) for i in range(player_num)]
@@ -75,7 +77,7 @@ class CFR():
             bets = [i[0][1] for i in self.m_pi]
             target_strategy = [i[2] for i in self.m_pi]
             t_val = [i[1] for i in self.m_pi]
-        # print(cards)
+            # print(cards)
             # card_format = cards[0]
             # for c in cards:
             #     print("gg")
@@ -89,7 +91,6 @@ class CFR():
                     optimizer.zero_grad()
                     pred = self.strat_model.forward(c,b) # switch out when not exhuasted
                     all_diff_tensor = torch.cat((all_diff_tensor, pred-ts ), 0) 
-                    print(ts)
                     loss = self.strat_model.loss(pred,ts,tv)
                     loss.backward(retain_graph=True)
                     optimizer.step() 
@@ -360,7 +361,9 @@ class CFR():
     def cards_to_num_dic_init(self,deck):
         counter = 0
         card_to_num_dic = {}
-        for i in deck:
+        deck1= list(deck)
+        deck1.sort()
+        for i in deck1:
             card_to_num_dic[i] = counter
             counter +=1
         return card_to_num_dic

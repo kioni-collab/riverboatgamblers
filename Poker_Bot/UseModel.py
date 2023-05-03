@@ -48,7 +48,9 @@ def model_nextmove(game__state):
 def cards_to_num_dic_init(deck):
         counter = 0
         card_to_num_dic = {}
-        for i in deck:
+        deck1= list(deck)
+        deck1.sort()
+        for i in deck1:
             card_to_num_dic[i] = counter
             counter +=1
         return card_to_num_dic
@@ -78,7 +80,7 @@ def bet_padding(bets:list):
 card_to_label = cards_to_num_dic_init(StandardDeck())
 game_actions = {
 
-"hand": ["Qd", "Kd"],
+"hand": ["3s", "8h"],
 "board": ["Jd", "Td", "Ad", "5h", "6c"],
 "history": ["bet", "call", "call", "bet", "bet", "bet", "call", "bet", "call", "fold", "bet"],
 "actions": ["bet", "call", "fold"]
